@@ -2,8 +2,34 @@
 #include <stdio.h>
 
 #include "charmlib.h"
-#include "font8x8.inl"
-#include "font8x10.inl"
+
+/* максимальное значение X */
+int CMAX_X;
+/* максимальное значение Y */
+int CMAX_Y;
+/* внутренн€€ ширина буфера = CMAX_Y+2 */
+int CSCR_WIDTH;
+/* указатель на текущий буфер вывода */
+char *CSCR_PTR;
+
+/* видимый диапазон значений z */
+int CMINZ, CMAXZ;
+
+const char CPALETTE_2[] = { 32, 250, 176, 177, 178, 219 };
+
+/* палитра символов дл€ pixel3d */
+const char* CPALETTE = CPALETTE_2;
+
+/* количество символов в палитре CPALETTE */
+int CPALETTE_LEN = 6;
+
+inline int mystrlen(const char* str); // пока что нужна только дл€ printfxy() и setpalette()
+
+void setmaxxy(int max_x, int max_y)
+{
+	CMAX_X = max_x;
+	CMAX_Y = max_y;
+}
 
 char* create_screen(int width_plus_one, int height, char fillchar)
 {
@@ -12,7 +38,14 @@ char* create_screen(int width_plus_one, int height, char fillchar)
 		for (int j = 0; j < width_plus_one - 1; j++)
 			*(scr + i * width_plus_one + j) = fillchar;
 	*(scr + height * width_plus_one - 1) = 0;
+
 	return scr;
+}
+
+void setcurrentscreen(char* screen, int width_plus_one)
+{
+	CSCR_PTR = screen;
+	CSCR_WIDTH = width_plus_one;
 }
 
 void delete_screen(char* screen)
@@ -20,192 +53,99 @@ void delete_screen(char* screen)
 	delete screen;
 }
 
-void print_screen(char* screen)
+void print_current_screen()
 {
 	gotoxy(0, 0);
-	printf("%s", screen);
+	printf("%s", CSCR_PTR);
 }
 
-inline void pixel(void* screen, int scr_width, int x, int y, char pixel)
+/* вывод символа без контрол€ границ */
+inline void pixel(int x, int y, char pixel)
 {
-	*((char*)screen + y * scr_width + x) = pixel;
+	*(CSCR_PTR + y * CSCR_WIDTH + x) = pixel;
 }
 
 /* вывод символа с контролем границ */
-inline void pixel_cb(void* screen, int scr_width, int x, int y, int max_x, int max_y, char pixel)
+inline void pixel_cb(int x, int y, char pixel)
 {
-	if (x>=0 && x<=max_x && y>=0 && y<=max_y)
-		*((char*)screen + y * scr_width + x) = pixel;
+	if (x>=0 && x<=CMAX_X && y>=0 && y<=CMAX_Y)
+		*(CSCR_PTR + y * CSCR_WIDTH + x) = pixel;
 }
 
-/*inline*/ void pixel2(void* screen, int scr_width, int x, int big_y, bool bit)
+/* ч/б точка в полсимвола без контрол€ границ */
+inline void pixel_2(int x, int big_y, char pixel)
 {
+	byte prev = (byte)*(CSCR_PTR + (big_y / 2) * CSCR_WIDTH + x);
+	if (prev < 219 || prev > 223 || prev == 221 || prev == 222) prev = 32;
+
 	const int map[2][2][4] = {
 		{{ 32, 220, 220, 32 },
 		{ 223, 219, 219, 223 }},
 		{{ 32, 223, 32, 223 },
 		{ 220, 219, 220, 219 }} };
 
-	// 	zbuf[y/2][x] = map[ y&1 ][ bit ][ (zbuf[y/2][x]>>1)&3 ];
-	*((char*)screen + (big_y/2) * scr_width  + x) = (char)map[big_y & 1][bit][(*((char*)screen + (big_y / 2) * scr_width + x) >> 1) & 3];
+	int bit = !(pixel == 32);
+	*(CSCR_PTR + (big_y / 2) * CSCR_WIDTH + x) = (char)map[big_y & 1][bit][(prev >> 1) & 3];
 }
 
-/*inline*/ void pixel2_cb(void* screen, int scr_width, int x, int big_y, int max_x, int big_max_y, bool bit)
+/* ч/б точка в полсимвола с контролем границ */
+inline void pixel_cb_2(int x, int big_y, char pixel)
 {
-	if (x >= 0 && x <= max_x && big_y >= 0 && big_y <= big_max_y)
-		pixel2(screen, scr_width, x, big_y, bit);
+	if (x >= 0 && x <= CMAX_X && big_y >= 0 && big_y <= CMAX_Y)
+		pixel_2(x, big_y, pixel);
 }
 
-void drawfilledrectangle(void* screen, int scr_width, int x1, int y1, int x2, int y2, char fillchar)
+/* точка с заданной интенсивностью k = 0..1.0F, использу€ setpalette() */
+inline void pixel(int x, int y, float k)
 {
-	for (int y = y1; y <= y2; y++)
-		for (int x = x1; x <= x2; x++)
-			*((char*)screen + y * scr_width + x) = fillchar;
+	pixel(x, y, CPALETTE[ (int)(k * (CPALETTE_LEN - 1)) ]);
 }
 
-inline void _drawrectangle(void* screen, int scr_width, int x1, int y1, int x2, int y2, char fillchar)
+/* точка с заданной интенсивностью, контроль границ */
+inline void pixel_cb(int x, int y, float k)
 {
-	for (int x = x1; x <= x2; x++)
-		pixel(screen, scr_width, x, y1, fillchar),
-		pixel(screen, scr_width, x, y2, fillchar);
-	for (int y = y1+1; y < y2; y++)
-		pixel(screen, scr_width, x1, y, fillchar),
-		pixel(screen, scr_width, x2, y, fillchar);
+	if (x >= 0 && x <= CMAX_X && y >= 0 && y <= CMAX_Y)
+		pixel(x, y, k);
 }
 
-inline void _drawrectangle_cb(void* screen, int scr_width, int x1, int y1, int x2, int y2, int max_x, int max_y, char fillchar)
+/* 3d-точка на основе setdepth3d() и setpalette() */
+inline void pixel3d(int x, int y, int z)
 {
-	for (int x = x1; x <= x2; x++)
-		pixel_cb(screen, scr_width, x, y1, max_x, max_y, fillchar),
-		pixel_cb(screen, scr_width, x, y2, max_x, max_y, fillchar);
-	for (int y = y1 + 1; y < y2; y++)
-		pixel_cb(screen, scr_width, x1, y, max_x, max_y, fillchar),
-		pixel_cb(screen, scr_width, x2, y, max_x, max_y, fillchar);
+	int i = CPALETTE_LEN - 1 - (z - CMINZ) * CPALETTE_LEN / (CMAXZ - CMINZ + 1);
+	pixel(x, y, CPALETTE[ max(0, min(CPALETTE_LEN - 1, i)) ]);
+
+	//pixel(x, y, '0'+z); // нагл€дный тест значений z
 }
 
-void drawrectangle(void* screen, int scr_width, int x1, int y1, int x2, int y2, int max_x, int max_y, char fillchar)
+/* 3d-точка с контролем границ */
+inline void pixel3d_cb(int x, int y, int z)
 {
-	int x = min(x1, x2);
-	int y = min(y1, y2);
-	int x3 = max(x1, x2);
-	int y3 = max(y1, y2);
-
-	if (x < 0 || y < 0 || x3 > max_x || y3 > max_y)
-		_drawrectangle_cb(screen, scr_width, x1, y1, x2, y2, max_x, max_y, fillchar);
-	else
-		_drawrectangle(screen, scr_width, x1, y1, x2, y2, fillchar);
+	if (x >= 0 && x <= CMAX_X && y >= 0 && y <= CMAX_Y)
+		pixel3d(x, y, z);
 }
 
-inline void _drawchar8x8(void* screen, int scr_width, char chr, int x, int y, char pen, char background, int thickness)
+/* установка палитры символов дл€ pixel3d, etc */
+void setpalette(const char *palette)
 {
-	for (int i = 0; i < 8; i++)
-		for (int j = 0; j < 8; j++)
-			if ((font8x8[(unsigned char)chr][i] & (1 << (7 - j))) != 0)
-				for (int ii = 0; ii < thickness; ii++)
-					for (int jj = 0; jj < thickness; jj++)
-						pixel2(screen, scr_width, x + j * thickness + jj, y + i * thickness + ii, pen);
-			else if (background != 0)
-				for (int ii = 0; ii < thickness; ii++)
-					for (int jj = 0; jj < thickness; jj++)
-						pixel2(screen, scr_width, x + j * thickness + jj, y + i * thickness + ii, background);
+	CPALETTE = palette;
+	CPALETTE_LEN = mystrlen(palette);
 }
 
-inline void _drawchar8x8_cb(void* screen, int scr_width, char chr, int x, int y, int max_x, int max_y, char pen, char background, int thickness)
+/* установка видимого диапазона дл€ 3d-палитры */
+void setdepth3d(int z1, int z2)
 {
-	for (int i = 0; i < 8; i++)
-		for (int j = 0; j < 8; j++)
-			if ((font8x8[(unsigned char)chr][i] & (1 << (7 - j))) != 0)
-				for (int ii = 0; ii < thickness && (y + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x + j * thickness + jj) <= max_x; jj++)
-						pixel2_cb(screen, scr_width, x + j * thickness + jj, y + i * thickness + ii, max_x, max_y, pen);
-			else if (background != 0)
-				for (int ii = 0; ii < thickness && (y + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x + j * thickness + jj) <= max_x; jj++)
-						pixel2_cb(screen, scr_width, x + j * thickness + jj, y + i * thickness + ii, max_x, max_y, background);
+	CMINZ = z1;
+	CMAXZ = z2;
 }
 
-void drawchar8x8(void* screen, int scr_width, char chr, int x, int y, int max_x, int max_y, char pen, char background, int thickness)
-{
-	if (chr <= 0 || x + 8 * thickness < 0 || y + 8 * thickness < 0 || x > max_x || y > max_y) return;
-	if (x < 0 || y < 0 || x + 8 * thickness > max_x || y + 8 * thickness > max_y)
-		_drawchar8x8_cb(screen, scr_width, chr, x, y, max_x, max_y, pen, background, thickness);
-	else
-		_drawchar8x8(screen, scr_width, chr, x, y, pen, background, thickness);
-}
-
-void drawtext8x8(void* screen, int scr_width, const char* text, int x, int y, int max_x, int max_y, char pen, char background, int thickness)
-{
-	if (*text == 0) return;
-	drawchar8x8(screen, scr_width, *text++, x, y, max_x, max_y, pen, background, thickness);
-	x += 8 * thickness;
-	for (int dx = 0; *text && (x + dx <= max_x); dx += 8 * thickness)
-		drawchar8x8(screen, scr_width, *text++, x + dx, y, max_x, max_y, pen, background, thickness);
-}
-
-void drawchar8x8_shifted(void* screen, int scr_width, char chr, int x, int y, int max_x, int max_y, char pen, char background, int thickness, int shiftleft, int shiftup)
-{
-	if (chr <= 0) return;
-
-	for (int i = 0; i < 8; i++)
-		for (int j = 0; j < 8; j++)
-			if ((font8x8[(unsigned char)chr][i] & (1 << (7 - j))) != 0)
-			{
-				for (int ii = 0; ii < thickness && (y - shiftup + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x - shiftleft + j * thickness + jj) <= max_x; jj++)
-						if (i * thickness + ii >= shiftup && j * thickness + jj >= shiftleft)
-							pixel2_cb(screen, scr_width, x - shiftleft + j * thickness + jj, y - shiftup + i * thickness + ii, max_x, max_y, pen);
-			}
-			else if (background != 0)
-				for (int ii = 0; ii < thickness && (y - shiftup + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x - shiftleft + j * thickness + jj) <= max_x; jj++)
-						if (i * thickness + ii >= shiftup && j * thickness + jj >= shiftleft)
-							pixel2_cb(screen, scr_width, x - shiftleft + j * thickness + jj, y - shiftup + i * thickness + ii, max_x, max_y, background);
-}
-
-void drawtext8x8_shifted(void* screen, int scr_width, const char* text, int x, int y, int max_x, int max_y, char pen, char background, int thickness, int shiftleft, int shiftup)
-{
-	if (*text == 0) return;
-	drawchar8x8_shifted(screen, scr_width, *text++, x, y, max_x, max_y, pen, background, thickness, shiftleft, shiftup);
-	x += 8*thickness - shiftleft;
-	for (int dx = 0; *text && (x + dx <= max_x); dx += 8*thickness)
-		drawchar8x8_shifted(screen, scr_width, *text++, x + dx, y, max_x, max_y, pen, background, thickness, 0, shiftup);
-}
-
-void drawchar8x10(void* screen, int scr_width, char chr, int x, int y, int max_x, int max_y, char pen, char background, int thickness, int shiftleft, int shiftup)
-{
-	for (int i = 0; i < 10; i++)
-		for (int j = 0; j < 8; j++)
-			if ((font8x10[i][(unsigned char)chr] & (1 << (7 - j))) != 0)
-			{
-				for (int ii = 0; ii < thickness && (y - shiftup + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x - shiftleft + j * thickness + jj) <= max_x; jj++)
-						if (i * thickness + ii >= shiftup && j * thickness + jj >= shiftleft)
-							*((char*)screen + (y - shiftup + i * thickness + ii) * scr_width + x - shiftleft + j * thickness + jj) = pen;
-			}
-			else if (background != 0)
-			{
-				for (int ii = 0; ii < thickness && (y - shiftup + i * thickness + ii) <= max_y; ii++)
-					for (int jj = 0; jj < thickness && (x - shiftleft + j * thickness + jj) <= max_x; jj++)
-						if (i * thickness + ii >= shiftup && j * thickness + jj >= shiftleft)
-							*((char*)screen + (y - shiftup + i * thickness + ii) * scr_width + x - shiftleft + j * thickness + jj) = background;
-			}
-}
-
-void drawtext8x10(void* screen, int scr_width, const char* text, int x, int y, int max_x, int max_y, char pen, char background, int thickness, int shiftleft, int shiftup)
-{
-	if (*text == 0) return;
-	drawchar8x10(screen, scr_width, *text++, x, y, max_x, max_y, pen, background, thickness, shiftleft, shiftup);
-	x += 8 * thickness - shiftleft;
-	for (int dx = 0; *text && (x + dx <= max_x); dx += 8 * thickness)
-		drawchar8x10(screen, scr_width, *text++, x + dx, y, max_x, max_y, pen, background, thickness, 0, shiftup);
-}
-
-int mystrlen(const char* str)
+// -----------------------------------------------------------------------
+inline int mystrlen(const char* str) // пока что нужна только дл€ printfxy() и setpalette()
 {
 	int i = 0; for (; str[i]; i++); return i;
 }
 
-void printfxy(void* screen, int scr_width, int x, int y, const char* fmt, ...)
+/* printf(...) в буфере screen, начина€ с позиции (x, y) */
+void printfxy(int x, int y, const char* fmt, ...)
 {
 	char* buf = new char[mystrlen(fmt) * 4];
 
@@ -215,12 +155,14 @@ void printfxy(void* screen, int scr_width, int x, int y, const char* fmt, ...)
 	vsprintf_s(buf, len, fmt, args);
 	va_end(args);
 
-	char* dest = (char*)screen + y * scr_width + x;
+	char* dest = CSCR_PTR + y * CSCR_WIDTH + x;
 	for (; *buf != 0 && *dest != 0;)
 		if (*dest == '\n') dest++;
 		else *dest++ = *buf++;	
 }
 
+// -----------------------------------------------------------------------
+// --- обЄртки дл€ WinAPI ------------------------------------------------
 // -----------------------------------------------------------------------
 void gotoxy(int xpos, int ypos)
 {
@@ -243,3 +185,72 @@ void sleep(int milliseconds)
 {
 	Sleep(milliseconds);
 }
+
+// -----------------------------------------------------------------------
+// --- спрайты
+// -----------------------------------------------------------------------
+#include "charmlib_sprites.inl"
+
+
+// -----------------------------------------------------------------------
+// --- линии --------------------------------------------
+// -----------------------------------------------------------------------
+#define POSTFIX
+#define PIXEL pixel
+#define PIXEL_CB pixel_cb
+#include "charmlib_lines.inl"
+#define POSTFIX _2
+#define PIXEL pixel_2
+#define PIXEL_CB pixel_cb_2
+#include "charmlib_lines.inl"
+
+#include "charmlib_line3d.inl"
+
+
+// -----------------------------------------------------------------------
+// --- пр€моугольники и рамки --------------------------------------------
+// -----------------------------------------------------------------------
+#define POSTFIX
+#define PIXEL pixel
+#define PIXEL_CB pixel_cb
+#include "charmlib_rectangles.inl"
+#define POSTFIX _2
+#define PIXEL pixel_2
+#define PIXEL_CB pixel_cb_2
+#include "charmlib_rectangles.inl"
+
+/* очистка канвы пробелом */
+void clear_canvas(void)
+{
+	drawfilledrectangle(0, 0, CMAX_X, CMAX_Y, ' ');
+}
+
+
+// -----------------------------------------------------------------------
+// --- функции дл€ работы с текстом --------------------------------------
+// -----------------------------------------------------------------------
+
+// (два шрифта, дл€ каждого -- по два способа вывода пикселей)
+#include "font8x8.inl"
+#include "font8x8.h"
+#define POSTFIX
+#define PIXEL pixel
+#define PIXEL_CB pixel_cb
+#include "charmlib_text.inl"
+#include "font8x8.h"
+#define POSTFIX _2
+#define PIXEL pixel_2
+#define PIXEL_CB pixel_cb_2
+#include "charmlib_text.inl"
+
+#include "font8x10.inl"
+#include "font8x10.h"
+#define POSTFIX
+#define PIXEL pixel
+#define PIXEL_CB pixel_cb
+#include "charmlib_text.inl"
+#include "font8x10.h"
+#define POSTFIX _2
+#define PIXEL pixel_2
+#define PIXEL_CB pixel_cb_2
+#include "charmlib_text.inl"
