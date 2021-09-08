@@ -5,8 +5,8 @@
 
 #include <math.h>
 
-
 #include "charmlib.h"
+
 
 int main()
 {
@@ -15,6 +15,30 @@ int main()
 	char* scr = create_screen(M + 1, N, ' ');
 	setcurrentscreen(scr, M + 1);
 	setmaxxy(M - 1, N - 1);
+
+
+	float* sprite2 = new float[100];
+
+	byte sprite[10][10];
+	for (int y = 0; y < 10; y++)
+		for (int x = 0; x < 10; x++)
+			sprite[y][x] = (x * x + y * y) % 256;
+
+	drawsprite(sprite2, 10, 10, 5, 5, 15, 15);
+	print_current_screen();
+	_getch();
+
+	clear_canvas();
+	drawsprite(sprite2, 10, 10, 5, 5, 20, 20);
+	print_current_screen();
+	_getch();
+
+	clear_canvas();
+	drawsprite(sprite2, 10, 10, 5, 5, 25, 40);
+	print_current_screen();
+	_getch();
+
+
 
 	char c = 'Û';
 	int x = 20, y = 10, z = 10, thickness = 1, shiftup = 10, shiftleft = 0;

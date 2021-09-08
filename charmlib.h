@@ -1,6 +1,10 @@
 #ifndef CHARMLIB_H
 #define CHARMLIB_H
 
+//#define NDEBUG
+#include <cassert>
+
+
 #define CHR_BLACK (char)32
 #define CHR_GRAY12 (char)176
 #define CHR_GRAY25 (char)177
@@ -27,6 +31,8 @@
 #define CHR_DBL_VERTLINE (char)186
 #define CHR_DBL_CROSS (char)206
 
+typedef unsigned char byte;
+
 /* запомнить максимальные значения координат */
 void setmaxxy(int max_x, int max_y);
 /* создать в памяти ещё один буфер */
@@ -51,6 +57,10 @@ void sleep(int milliseconds);
 inline void pixel(int x, int y, char pixel = CHR_WHITE);
 /* вывод символа с контролем границ */
 inline void pixel_cb(int x, int y, char pixel = CHR_WHITE);
+/* вывод символа без контроля границ */
+inline void pixel(int x, int y, byte pixel);
+/* вывод символа с контролем границ */
+inline void pixel_cb(int x, int y, byte pixel);
 
 /* ч/б точка в полсимвола без контроля границ */
 inline void pixel_2(int x, int big_y, char pixel = CHR_WHITE);
@@ -73,8 +83,18 @@ void setpalette(const char* palette);
 
 // --- спрайты из "charmlib_sprites.inl" ---
 
+///* вывод спрайта с масштабированием, интенсивность пикселя 0..1F */
+//void drawsprite(float* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
+///* вывод спрайта с масштабированием, интенсивность пикселя 0..255 */
+//void drawsprite(byte* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
+
+/* вывод спрайта с масштабированием, интенсивность пикселя 0..1F или 0..(byte)255 */
+template <typename T> void drawsprite(T* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
+
 /* вывод спрайта с масштабированием, интенсивность пикселя 0..1F */
-void drawsprite(float* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
+extern template void drawsprite(float* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
+/* вывод спрайта с масштабированием, интенсивность пикселя 0..255 */
+extern template void drawsprite(byte* sprite, int swidth, int sheight, int x1, int y1, int x2, int y2);
 
 // --- линии из "charmlib_lines.inl" ---
 

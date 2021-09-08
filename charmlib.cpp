@@ -60,6 +60,18 @@ void print_current_screen()
 }
 
 /* вывод символа без контроля границ */
+inline void pixel(int x, int y, byte pixel)
+{
+	::pixel(x, y, pixel);
+}
+
+/* вывод символа с контролем границ */
+inline void pixel_cb(int x, int y, byte pixel)
+{
+	::pixel_cb(x, y, pixel);
+}
+
+/* вывод символа без контроля границ */
 inline void pixel(int x, int y, char pixel)
 {
 	*(CSCR_PTR + y * CSCR_WIDTH + x) = pixel;
@@ -98,6 +110,7 @@ inline void pixel_cb_2(int x, int big_y, char pixel)
 /* точка с заданной интенсивностью k = 0..1.0F, используя setpalette() */
 inline void pixel(int x, int y, float k)
 {
+	assert(k>=0 && k<=1.0F);
 	pixel(x, y, CPALETTE[ (int)(k * (CPALETTE_LEN - 1)) ]);
 }
 
