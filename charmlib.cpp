@@ -15,7 +15,7 @@ char *CSCR_PTR;
 /* видимый диапазон значений z */
 int CMINZ, CMAXZ;
 
-const char CPALETTE_2[] = { 32, 250, 176, 177, 178, 219 };
+const char CPALETTE_2[] = { 32, (char)250, (char)176, (char)177, (char)178, (char)219 };
 
 /* палитра символов для pixel3d */
 const char* CPALETTE = CPALETTE_2;
@@ -111,7 +111,7 @@ inline void pixel_cb_2(int x, int big_y, char pixel)
 inline void pixel(int x, int y, float k)
 {
 	assert(k>=0 && k<=1.0F);
-	pixel(x, y, CPALETTE[ (int)(k * (CPALETTE_LEN - 1)) ]);
+	pixel(x, y, CPALETTE[ (int)(k * (CPALETTE_LEN - 0.0000001)) ]);
 }
 
 /* точка с заданной интенсивностью, контроль границ */

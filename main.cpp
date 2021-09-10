@@ -17,28 +17,38 @@ int main()
 	setmaxxy(M - 1, N - 1);
 
 
-	float* sprite2 = new float[100];
+	//float* sprite2 = new float[100];
 
-	byte sprite[10][10];
-	for (int y = 0; y < 10; y++)
-		for (int x = 0; x < 10; x++)
-			sprite[y][x] = (x * x + y * y) % 256;
+	byte *sprite = new byte[M*N];
+	for (int y = 0; y < N; y++)
+		for (int x = 0; x < M; x++)
+			sprite[y*M+x] = (x * x + y * y + x * y) * 8 % 256;
 
-	drawsprite(sprite2, 10, 10, 5, 5, 15, 15);
-	print_current_screen();
-	_getch();
+	for (int y = 0; y < N; y++)
+		for (int x = 0; x < M; x++)
+			if (y % 5 == 0 || x % 14 == 0 || x % 14 == 1 || x % 14 == 2)
+				sprite[y * M + x] = 255;
 
-	clear_canvas();
-	drawsprite(sprite2, 10, 10, 5, 5, 20, 20);
-	print_current_screen();
-	_getch();
+	//for (int k = 0; k <= N/2; k++)
+	//{
+	//	drawsprite(sprite, M, N, k, k, M - 1 - k, N - 1 - k);
+	//	printfxy(4, 4, "k = %d", k);
+	//	print_current_screen();
+	//	clear_canvas();
+	//	_getch();
+	//}
 
-	clear_canvas();
-	drawsprite(sprite2, 10, 10, 5, 5, 25, 40);
-	print_current_screen();
-	_getch();
+	for (int k = 0; k < 200; k++)
+	{
+		drawsprite(sprite, M, N, 0, 0, M - 1 + k, N - 1 + k);
+		printfxy(4, 4, "k = %d", k);
+		print_current_screen();
+		clear_canvas();
+		_getch();
+	}
 
 
+	exit(0);
 
 	char c = 'Û';
 	int x = 20, y = 10, z = 10, thickness = 1, shiftup = 10, shiftleft = 0;

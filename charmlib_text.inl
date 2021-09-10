@@ -21,12 +21,12 @@
 #define CONCAT(x,y,z) CONCAT2(x,CONCAT2(y,z))
 
 #define DRAWCHAR CONCAT(drawchar,FONTNAME(),POSTFIX)
-#define _DRAWCHAR CONCAT(_,DRAWCHAR)
-#define _DRAWCHAR_CB CONCAT(_DRAWCHAR,_cb)
-#define DRAWCHAR_SHIFTED CONCAT(DRAWCHAR,_shifted)
+#define _DRAWCHAR CONCAT2(_,DRAWCHAR)
+#define _DRAWCHAR_CB CONCAT2(_DRAWCHAR,_cb)
+#define DRAWCHAR_SHIFTED CONCAT2(DRAWCHAR,_shifted)
 
 #define DRAWTEXT CONCAT(drawtext,FONTNAME(),POSTFIX)
-#define DRAWTEXT_SHIFTED CONCAT(DRAWTEXT,_shifted)
+#define DRAWTEXT_SHIFTED CONCAT2(DRAWTEXT,_shifted)
 
 // -----------------------------------------------------------------------
 inline void _DRAWCHAR(char chr, int x, int y, char pen, char background, int thickness)

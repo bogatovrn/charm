@@ -11,9 +11,9 @@
 #define CONCAT2(x,y) CONCAT3(x,y)
 #define CONCAT(x,y,z) CONCAT2(x,CONCAT2(y,z))
 
-#define DRAWLINE CONCAT(drawline,POSTFIX)
-#define _DRAWLINE CONCAT(_,DRAWLINE)
-#define _DRAWLINE_CB CONCAT(_DRAWLINE,_cb)
+#define DRAWLINE CONCAT2(drawline,POSTFIX)
+#define _DRAWLINE CONCAT2(_,DRAWLINE)
+#define _DRAWLINE_CB CONCAT2(_DRAWLINE,_cb)
 
 // -----------------------------------------------------------------------
 inline void _DRAWLINE(int x1, int y1, int x2, int y2, char pen)
